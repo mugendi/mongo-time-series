@@ -17,8 +17,8 @@ var a = function(options) {
   options = _.extend(
     {
       interval: "day",
-      schemaName: "analyticsSchema",
-      dateArrayLength: 500
+      modelName: "MTSSchema",
+      tsArraySize: 500
     },
     options,
     {
@@ -40,12 +40,12 @@ var a = function(options) {
       : "day";
 
   //create model if not created already
-  if (mongoose.modelSchemas.hasOwnProperty(options.schemaName) === false) {
-    mongoose.model(options.schemaName, options.schema);
+  if (mongoose.modelSchemas.hasOwnProperty(options.modelName) === false) {
+    mongoose.model(options.modelName, options.schema);
   }
 
   self = _.extend(self, options, {
-    model: mongoose.model(options.schemaName)
+    model: mongoose.model(options.modelName)
   });
 
   //add plugins
@@ -106,7 +106,7 @@ a.prototype.makeStats = function makeStats(stats) {
 
   var ts = ((stats && stats.ts) || [])
     .concat([new Date()])
-    .slice(-1 * self.dateArrayLength);
+    .slice(-1 * self.tsArraySize);
 
   // calculate hits per hour & so on
   var index = self.granularity.indexOf(self.interval),
@@ -135,7 +135,7 @@ a.prototype.makeStats = function makeStats(stats) {
   };
 };
 
-a.prototype.saveStat = function saveStat(doc) {
+a.prototype.save = function saveStat(doc) {
   let self = this;
 
   return new Promise(async (resolve, reject) => {
@@ -205,20 +205,16 @@ a.prototype.saveStat = function saveStat(doc) {
   });
 };
 
-a.prototype.exporeStat = function(duration, start, end, uniqueKeys) {
+a.prototype.expore = function(start, end, uniqueKeys) {
   let self = this;
   return new Promise(async (resolve, reject) => {
     if (!_.isDate(start)) throw new Error("'start' must be a Date");
     if (!_.isDate(end)) throw new Error("'end' must be a Date");
-    if (_.indexOf(self.granularity, duration) == -1)
-      throw new Error(
-        "'duration' must be one of: " + self.granularity.join(",")
-      );
     if (uniqueKeys && !_.isObject(uniqueKeys))
       throw new Error("'uniqueKeys' must be an object");
 
     var query = _.extend(uniqueKeys, {
-      "mts__interval.duration": duration,
+      "mts__interval.duration": self.interval,
       "mts__interval.start": { $gte: start },
       "mts__interval.end": { $lte: end }
     });

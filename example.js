@@ -31,12 +31,12 @@ var doc = { key: "233", event: "hit" };
 
 /* Save */
 analytics
-  .saveStat(doc)
+  .save(doc)
   .then(resp => {
     console.log(resp);
   })
   .catch(console.error);
-  
+
 
 /* Explore */
 var start = moment()
@@ -46,7 +46,7 @@ var start = moment()
   uniqueKeys = { key: "233", event: "hit" };
 
 analytics
-  .exporeStat("minute", start, end, uniqueKeys)
+  .expore(start, end, uniqueKeys)
   .then(resp => {
     console.log(resp);
   })
