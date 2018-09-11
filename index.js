@@ -1,5 +1,4 @@
 const moment = require("moment"),
-  dot = require("dot-object"),
   ms = require("ms");
 
 var a = function(mongoose, options) {
@@ -164,11 +163,11 @@ a.prototype.save = function saveStat(doc) {
       var { ts, mts__stats } = self.makeStats(found.mts__stats);
 
       //   console.log(ts);
-      var setData = dot.dot({ mts__stats });
+      var setData = dotify({ mts__stats });
       setData["mts__stats.ts"] = ts;
       setData.updatedAt = new Date();
 
-      //   console.log(setData);
+      // console.log(setData);
 
       try {
         status = await q
@@ -306,6 +305,26 @@ function pick(obj, arr) {
     .filter(o => Object.values(o)[0])
     .reduce((a, b) => Object.assign(a, b), {});
 }
+
+//stolen from https://github.com/GeenenTijd/dotify/blob/master/dotify.js
+function dotify(obj) {
+  var res = {};
+  function recurse(obj, current) {
+    for (var key in obj) {
+      var value = obj[key];
+      var newKey = (current ? current + '.' + key : key);  // joined key with dot
+      if (value && typeof value === 'object') {
+        recurse(value, newKey);  // it's a nested object, so do it again
+      } else {
+        res[newKey] = value;  // it's not an object, so set the property
+      }
+    }
+  }
+
+  recurse(obj);
+  return res;
+}
+
 
 module.exports = function(mongoose, options) {
   return new a(mongoose, options);

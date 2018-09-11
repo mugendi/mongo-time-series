@@ -20,7 +20,6 @@
   "author": "Anthony Mugendi <ngurumugz@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "dot-object": "^1.7.0",
     "moment": "^2.22.2",
     "ms": "^2.1.1"
   },
