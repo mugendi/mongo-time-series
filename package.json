@@ -1,6 +1,6 @@
 {
   "name": "mongo-time-series",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Mongo DB time series and analytics module for Mongoose",
   "main": "index.js",
   "scripts": {
@@ -26,5 +26,14 @@
     "mongoose": "^5.2.14",
     "ms": "^2.1.1",
     "pluralize": "^7.0.0"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mugendi/mongo-time-series.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mugendi/mongo-time-series/issues"
+  },
+  "homepage": "https://github.com/mugendi/mongo-time-series#readme"
 }
