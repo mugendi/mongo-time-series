@@ -1,5 +1,4 @@
 const moment = require("moment"),
-  pluralize = require("pluralize"),
   dot = require("dot-object"),
   ms = require("ms");
 
@@ -117,7 +116,7 @@ a.prototype.makeStats = function makeStats(stats) {
   granulars.forEach(g => {
     var diff = moment(ts[ts.length - 1]).diff(
         moment(ts[0]),
-        pluralize.plural(g),
+        `${g}s`,
         true
       ),
       val = Math.ceil(ts.length / diff);
