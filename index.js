@@ -1,20 +1,22 @@
 const moment = require("moment"),
-  mongoose = require("mongoose"),
   pluralize = require("pluralize"),
   dot = require("dot-object"),
-  ms = require("ms"),
-  _ = require("lodash");
+  ms = require("ms");
 
-var a = function(options) {
+var a = function(mongoose, options) {
   let self = this;
 
-  if (!_.isObject(options)) throw new Error("options must be an object");
+  if (!(typeof options == "object" && !Array.isArray(options)))
+    throw new Error("options must be an object");
   if (!options.schema instanceof mongoose.Schema)
     throw new Error("options.schema must be a Mongoose Schema");
-  if (!_.has(options, "uniqueKeys") || !_.isArray(options.uniqueKeys))
+  if (
+    !options.hasOwnProperty("uniqueKeys") ||
+    !Array.isArray(options.uniqueKeys)
+  )
     throw new Error("options.uniqueKeys must be set and be an Array");
 
-  options = _.extend(
+  options = Object.assign(
     {
       interval: "day",
       modelName: "MTSSchema",
@@ -35,16 +37,17 @@ var a = function(options) {
   );
 
   options.interval =
-    _.indexOf(options.granularity.slice(1), options.interval) > -1
+    options.granularity.slice(1).indexOf(options.interval) > -1
       ? options.interval
       : "day";
 
   //create model if not created already
+  // console.log(mongoose.modelSchemas);
   if (mongoose.modelSchemas.hasOwnProperty(options.modelName) === false) {
     mongoose.model(options.modelName, options.schema);
   }
 
-  self = _.extend(self, options, {
+  self = Object.assign(self, options, {
     model: mongoose.model(options.modelName)
   });
 
@@ -64,7 +67,7 @@ a.prototype.statsPlugin = function statsPlugin() {
         }
       };
     })
-    .reduce((a, b) => _.merge(a, b), {});
+    .reduce((a, b) => Object.assign(a, b), {});
 
   self.schema.add({
     mts__stats: {
@@ -97,8 +100,6 @@ a.prototype.statsPlugin = function statsPlugin() {
     createdAt: Date,
     updatedAt: Date
   });
-
- 
 };
 
 a.prototype.makeStats = function makeStats(stats) {
@@ -114,15 +115,15 @@ a.prototype.makeStats = function makeStats(stats) {
     granulars = self.granularity.slice(0, index + 1);
 
   granulars.forEach(g => {
-    var diff = moment(_.last(ts)).diff(
-        moment(_.first(ts)),
+    var diff = moment(ts[ts.length - 1]).diff(
+        moment(ts[0]),
         pluralize.plural(g),
         true
       ),
       val = Math.ceil(ts.length / diff);
 
     avg[g] = {
-      val: _.isFinite(val) ? val : 0,
+      val: isFinite(val) ? val : 0,
       isForecast: diff < 1
     };
   });
@@ -135,13 +136,16 @@ a.prototype.makeStats = function makeStats(stats) {
   };
 };
 
+
+
 a.prototype.save = function saveStat(doc) {
   let self = this;
 
   return new Promise(async (resolve, reject) => {
+
     var status = null,
       now = new Date(),
-      query = _.extend(_.pick(doc, self.uniqueKeys), {
+      query = Object.assign(pick(doc, self.uniqueKeys), {
         "mts__interval.duration": self.interval,
         "mts__interval.start": { $lt: now },
         "mts__interval.end": { $gt: now }
@@ -208,12 +212,12 @@ a.prototype.save = function saveStat(doc) {
 a.prototype.expore = function(start, end, uniqueKeys) {
   let self = this;
   return new Promise(async (resolve, reject) => {
-    if (!_.isDate(start)) throw new Error("'start' must be a Date");
-    if (!_.isDate(end)) throw new Error("'end' must be a Date");
-    if (uniqueKeys && !_.isObject(uniqueKeys))
-      throw new Error("'uniqueKeys' must be an object");
+    if (!start instanceof Date) throw new Error("'start' must be a Date");
+    if (!end instanceof Date) throw new Error("'end' must be a Date");
+    if (uniqueKeys && !Array.isArray(uniqueKeys))
+      throw new Error("'uniqueKeys' must be an array");
 
-    var query = _.extend(uniqueKeys, {
+    var query = Object.assign(uniqueKeys || {}, {
       "mts__interval.duration": self.interval,
       "mts__interval.start": { $gte: start },
       "mts__interval.end": { $lte: end }
@@ -231,7 +235,7 @@ a.prototype.expore = function(start, end, uniqueKeys) {
           [`forecast/${g}`]: { $addToSet: `$mts__stats.avg.${g}.isForecast` }
         };
       })
-      .reduce((a, b) => _.merge(a, b), {});
+      .reduce((a, b) => Object.assign(a, b), {});
 
     // console.log(avgs);
 
@@ -240,7 +244,7 @@ a.prototype.expore = function(start, end, uniqueKeys) {
       .match(query)
       .sort("mts__interval.t")
       .group(
-        _.extend(
+        Object.assign(
           {
             _id: null,
             // count: { $sum: 1 },
@@ -260,8 +264,8 @@ a.prototype.expore = function(start, end, uniqueKeys) {
       .exec()
       .catch(console.error);
 
-    if(!aggs || aggs.length===0){
-        return resolve(null)
+    if (!aggs || aggs.length === 0) {
+      return resolve(null);
     }
 
     var stats = {
@@ -269,7 +273,7 @@ a.prototype.expore = function(start, end, uniqueKeys) {
         count: 0,
         avg: {}
       },
-      timeSeries: aggs[0].timeSeries.filter(a => _.size(a) == 2),
+      timeSeries: aggs[0].timeSeries.filter(a => Object.keys(a).length == 2),
       meta: {
         start: aggs[0].start,
         end: aggs[0].end
@@ -294,6 +298,16 @@ a.prototype.expore = function(start, end, uniqueKeys) {
   });
 };
 
-module.exports = function(options) {
-  return new a(options);
+
+function pick(obj, arr) {
+  return arr
+    .map(k => {
+      return { [k]: obj[k] || null };
+    })
+    .filter(o => Object.values(o)[0])
+    .reduce((a, b) => Object.assign(a, b), {});
+}
+
+module.exports = function(mongoose, options) {
+  return new a(mongoose, options);
 };

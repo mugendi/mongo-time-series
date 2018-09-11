@@ -21,9 +21,7 @@
   "license": "MIT",
   "dependencies": {
     "dot-object": "^1.7.0",
-    "lodash": "^4.17.10",
     "moment": "^2.22.2",
-    "mongoose": "^5.2.14",
     "ms": "^2.1.1",
     "pluralize": "^7.0.0"
   },

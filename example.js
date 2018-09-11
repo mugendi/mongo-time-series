@@ -23,7 +23,7 @@ var options = {
     interval: "minute",
     uniqueKeys: ["key", "event"]
   },
-  analytics = Analytics(options);
+  analytics = Analytics(mongoose, options);
 
 var SceneHits = mongoose.model("SceneHits");
 

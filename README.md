@@ -53,7 +53,7 @@ var options = {
   };
 
 //Initialize MTS. 
-var mts = MTS(options);
+var mts = MTS(mongoose, options);
 
 /** 
  * With MTS, we normally don't need to use the Model directly.
@@ -158,8 +158,10 @@ Because this data is *forecasted* (an estimate at best), it is clearly marked as
 
 # API
 
-## Init ```MTS(options)```
+## Init ```MTS(mongoose, options)```
 Initializes an MTS instance. 
+- pass an existing mongoose instance (so we know hor to connect, which collection, e.t.c ) alongside your options.
+
 ### Options Available
 - **schema: (required)** your mongoose schema.
 - **schemaName: (optional but recommended)** what name did you give your schema on mongoose. If no name is given, or the name does not represent an initialized mode, then one will be created and named **"MTSSchema"**
