@@ -1,0 +1,29 @@
+{
+  "name": "mongo-time-series",
+  "version": "1.0.0",
+  "description": "Mongo DB time series and analytics module for Mongoose",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mongo",
+    "mongodb",
+    "time",
+    "series",
+    "timeseries",
+    "time-series",
+    "mongoose",
+    "plugin",
+    "analytics"
+  ],
+  "author": "Anthony Mugendi <ngurumugz@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "lodash": "^4.17.10",
+    "moment": "^2.22.2",
+    "mongoose": "^5.2.14",
+    "ms": "^2.1.1",
+    "pluralize": "^7.0.0"
+  }
+}
