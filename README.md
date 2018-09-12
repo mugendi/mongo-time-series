@@ -1,7 +1,7 @@
 # What?
 Mongo-Time-Series (MTS) is rich Mongo DB time series and analytics module built for [Mongoose](https://mongoosejs.com).
 
-MTS helps you visualize your time series data and attemps to fill in the gaps by making smart data predictions.
+MTS helps you visualize your time series data and attemps to fill in the gaps by making smart data predictions and run summary statistics on select numeric fields.
 
 # Why?
 I wanted a module to save analytics sent from the client via [Ahoy.js](https://github.com/ankane/ahoy.js).
@@ -26,6 +26,11 @@ var hitsSchema = new mongoose.Schema({
   "userId": String,
   "event": String,
 
+  "pos": {
+    "zoom": Number,
+    "x": Number
+  },
+
   //These two keys will be automatically added and populated
   "createdAt": Date,
   "updatedAt": Date
@@ -49,7 +54,12 @@ var options = {
     //what granularity do we want for our timeseries data?
     interval: "minute",
     //what are the unique keys to identify different documents
-    uniqueKeys: ["userId", "event"]
+    uniqueKeys: ["userId", "event"],
+    //numeric keys on witch to run summary statistics
+    calculations: {
+      "pos.zoom": "zoom",
+      "pos.x": "x"
+    }
   };
 
 //Initialize MTS. 
@@ -68,7 +78,14 @@ To ensure that analytics are added to every document you save, you need to do so
 
 ```javascript
 //this is your document
-var doc = { userId: "u-ed-20334", event: "click" };
+var doc = { 
+    userId: "u-ed-20334", 
+    event: "click" ,
+    pos: {
+        zoom: Math.random() * 25,
+        x: Math.random() * 80
+    }
+};
 
 //Save document
 mts.save(doc)
@@ -117,7 +134,29 @@ This will output the following:
                 "hasForecast": true    
             }                
         }                
-    },              
+    },    
+    "calculations": {
+        "zoom": {
+            "num": 541,
+            "sum": 6436.832237618005,
+            "avg": 11.89802631722367,
+            "min": 1.066089178148777,
+            "q1": 5.9155911001141925,
+            "median": 11.207243010087254,
+            "q3": 16.787587622290317,
+            "max": 23.86659413642403
+        },
+        "x": {
+            "num": 541,
+            "sum": 17967.804374280287,
+            "avg": 33.21220771586005,
+            "min": 17.571185887429888,
+            "q1": 32.48321209248681,
+            "median": 32.48321209248681,
+            "q3": 41.49306908847892,
+            "max": 67.45257542537209
+        }
+    },          
     "timeSeries": [ 
         {             
             "t": "09/11/2018 20:28",   
@@ -167,6 +206,8 @@ Initializes an MTS instance.
 - **schemaName: (optional but recommended)** what name did you give your schema on mongoose. If no name is given, or the name does not represent an initialized mode, then one will be created and named **"MTSSchema"**
 - **interval: (optional, default="day")** How granular do you want your time series data to be? Possible values include ***"second", "minute", "hour", "day", "week", "month"*** and ***"year"***
 - **uniqueKeys: (optional but recommended)** An array of keys within your schema should be used to determine if a new document should be created. For example, if your intend to track data based on a user, then include user-id as a unique key. Because these keys are used a lot by MTS, it is recommended that you index each of them.
+- **calculations: (optional)** an object containing keys on which summary statistics are calculated. while entering the calculations object, ensure that the *field name* is entered as the key with its *value* being the document path in final analytics result. For example, the example above returns analytics for **pos.zoom** as **calculations.zoom**. If the calculations object was ```{"data.nested.foo":"bar"}``` MTS will return ```{"calculations.bar" : {...summary stats}}``` from ```{data:{nested:{foo:23}}}```.
+
 - **tsArraySize: (optional, default=500)** determines the maximum number of time-stamps stored within each document for aggregation. Only the most recent time-stamps are retained to ensure that documents are not too big. If you should alter this value, understand that the time-stamps you have, the less accurate your data will be. Also a very high number will mean your documents could get too large and impact on aggregation and document saving drastically.
 
 ## Save ```.save(doc)```

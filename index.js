@@ -1,4 +1,5 @@
 const moment = require("moment"),
+  ss = require("summary-statistics"),
   ms = require("ms");
 
 var a = function(mongoose, options) {
@@ -18,7 +19,11 @@ var a = function(mongoose, options) {
     {
       interval: "day",
       modelName: "MTSSchema",
-      tsArraySize: 500
+      tsArraySize: 500,
+      calculations: {
+        "pos.zoom": "zoom",
+        "pos.x": "x"
+      }
     },
     options,
     {
@@ -67,6 +72,14 @@ a.prototype.statsPlugin = function statsPlugin() {
     })
     .reduce((a, b) => Object.assign(a, b), {});
 
+  var calcs = {};
+
+  for (var i in self.calculations) {
+    calcs[self.calculations[i]] = [Number];
+  }
+
+  // console.log(calcs);
+
   self.schema.add({
     mts__stats: {
       count: Number,
@@ -95,6 +108,8 @@ a.prototype.statsPlugin = function statsPlugin() {
       },
       end: Date
     },
+
+    mts__calculations: calcs,
     createdAt: Date,
     updatedAt: Date
   });
@@ -113,11 +128,7 @@ a.prototype.makeStats = function makeStats(stats) {
     granulars = self.granularity.slice(0, index + 1);
 
   granulars.forEach(g => {
-    var diff = moment(ts[ts.length - 1]).diff(
-        moment(ts[0]),
-        `${g}s`,
-        true
-      ),
+    var diff = moment(ts[ts.length - 1]).diff(moment(ts[0]), `${g}s`, true),
       val = Math.ceil(ts.length / diff);
 
     avg[g] = {
@@ -134,13 +145,10 @@ a.prototype.makeStats = function makeStats(stats) {
   };
 };
 
-
-
 a.prototype.save = function saveStat(doc) {
   let self = this;
 
   return new Promise(async (resolve, reject) => {
-
     var status = null,
       now = new Date(),
       query = Object.assign(pick(doc, self.uniqueKeys), {
@@ -162,11 +170,24 @@ a.prototype.save = function saveStat(doc) {
     if (found) {
       var { ts, mts__stats } = self.makeStats(found.mts__stats);
 
-      //   console.log(ts);
+      // console.log(found);
       var setData = dotify({ mts__stats });
       setData["mts__stats.ts"] = ts;
       setData.updatedAt = new Date();
 
+      var calcs = {},
+        dotDoc = dotify(doc)
+      // console.log(dotDoc);
+
+      for(var i in self.calculations){
+        calcs[`${self.calculations[i]}`] = ((found["mts__calculations"]||{})[self.calculations[i]] || []).concat([dotDoc[i]]);
+      }
+
+      // console.log(calcs);
+
+      setData["mts__calculations"] = calcs;
+
+      // console.log(self.calculations, dotDoc);
       // console.log(setData);
 
       try {
@@ -226,7 +247,7 @@ a.prototype.expore = function(start, end, uniqueKeys) {
     var index = self.granularity.indexOf(self.interval),
       granulars = self.granularity.slice(0, index + 1);
 
-    avgs = granulars
+    var avgs = granulars
       .map(g => {
         return {
           [`avg/${g}`]: { $avg: `$mts__stats.avg.${g}.val` },
@@ -235,7 +256,21 @@ a.prototype.expore = function(start, end, uniqueKeys) {
       })
       .reduce((a, b) => Object.assign(a, b), {});
 
-    // console.log(avgs);
+    var unwinds = [],
+      calcs = {};
+
+    if (self.calculations) {
+      var calcs = {};
+
+      for (var i in self.calculations) {
+        calcs[`calculations/${self.calculations[i]}`] = {
+          $push: `$mts__calculations.${self.calculations[i]}`
+        };
+      }
+    }
+
+    // console.log(unwinds);
+    // console.log(calcs);
 
     var aggs = await self.model
       .aggregate()
@@ -255,12 +290,18 @@ a.prototype.expore = function(start, end, uniqueKeys) {
             start: { $min: "$mts__interval.start" },
             end: { $max: "$mts__interval.end" }
           },
-          avgs
+          avgs,
+          calcs
         )
       )
       .project("-_id")
       .exec()
       .catch(console.error);
+
+    // console.log(JSON.stringify(aggs,0,4));
+    // console.log(aggs);
+
+    // return
 
     if (!aggs || aggs.length === 0) {
       return resolve(null);
@@ -271,6 +312,7 @@ a.prototype.expore = function(start, end, uniqueKeys) {
         count: 0,
         avg: {}
       },
+      calculations : {},
       timeSeries: aggs[0].timeSeries.filter(a => Object.keys(a).length == 2),
       meta: {
         start: aggs[0].start,
@@ -292,10 +334,31 @@ a.prototype.expore = function(start, end, uniqueKeys) {
 
     stats.overview.count = stats.timeSeries.length;
 
+    // stats.calculations = {};
+
+    for (var i in self.calculations) {
+      stats.calculations[self.calculations[i]] = ss(
+        aggs[0][`calculations/${self.calculations[i]}`].reduce(
+          (a, b) => a.concat(b),
+          []
+        )
+      );
+
+      // self.calculations
+      //   .map(o => {
+      //     return {
+      //       [`${o.as}`]: ss( aggs[0][`calculations/${o.as}`].reduce(
+      //         (a, b) => a.concat(b),
+      //         []
+      //       ) )
+      //     };
+      //   })
+      //   .reduce((a, b) => Object.assign(a, b), {})
+    }
+
     resolve(stats);
   });
 };
-
 
 function pick(obj, arr) {
   return arr
@@ -312,11 +375,11 @@ function dotify(obj) {
   function recurse(obj, current) {
     for (var key in obj) {
       var value = obj[key];
-      var newKey = (current ? current + '.' + key : key);  // joined key with dot
-      if (value && typeof value === 'object') {
-        recurse(value, newKey);  // it's a nested object, so do it again
+      var newKey = current ? current + "." + key : key; // joined key with dot
+      if (value && typeof value === "object") {
+        recurse(value, newKey); // it's a nested object, so do it again
       } else {
-        res[newKey] = value;  // it's not an object, so set the property
+        res[newKey] = value; // it's not an object, so set the property
       }
     }
   }
@@ -324,7 +387,6 @@ function dotify(obj) {
   recurse(obj);
   return res;
 }
-
 
 module.exports = function(mongoose, options) {
   return new a(mongoose, options);

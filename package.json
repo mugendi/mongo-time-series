@@ -21,7 +21,8 @@
   "license": "MIT",
   "dependencies": {
     "moment": "^2.22.2",
-    "ms": "^2.1.1"
+    "ms": "^2.1.1",
+    "summary-statistics": "^1.0.0"
   },
   "devDependencies": {},
   "repository": {

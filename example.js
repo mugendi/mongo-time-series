@@ -5,9 +5,14 @@ const mongoose = require("mongoose"),
 var Schema = mongoose.Schema;
 
 var sceneHitsSchema = new Schema({
-    //these keys are used as uniqueKeys. Advisable that you add them to your indexes
+  //these keys are used as uniqueKeys. Advisable that you add them to your indexes
   key: String,
   event: String,
+
+  pos: {
+    zoom: Number,
+    x: Number
+  },
 
   //These two keys will be automatically added and populated
   createdAt: Date,
@@ -21,13 +26,24 @@ var options = {
     schema: sceneHitsSchema,
     schemaName: "SceneHits",
     interval: "minute",
-    uniqueKeys: ["key", "event"]
+    uniqueKeys: ["key", "event"],
+    calculations: {
+      "pos.zoom": "zoom",
+      "pos.x": "x"
+    }
   },
   analytics = Analytics(mongoose, options);
 
 var SceneHits = mongoose.model("SceneHits");
 
-var doc = { key: "233", event: "hit" };
+var doc = {
+  key: "233",
+  event: "hit",
+  pos: {
+    zoom: Math.random() * 25,
+    x: Math.random() * 80
+  }
+};
 
 /* Save */
 analytics
@@ -36,7 +52,6 @@ analytics
     console.log(resp);
   })
   .catch(console.error);
-
 
 /* Explore */
 var start = moment()
