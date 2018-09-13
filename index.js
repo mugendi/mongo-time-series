@@ -5,25 +5,46 @@ const moment = require("moment"),
 var a = function(mongoose, options) {
   let self = this;
 
-  if (!(typeof options == "object" && !Array.isArray(options)))
+  if (!(typeof options == "object" && !Array.isArray(options))) {
     throw new Error("options must be an object");
-  if (!options.schema instanceof mongoose.Schema)
+  }
+
+  if (!options.schema instanceof mongoose.Schema) {
     throw new Error("options.schema must be a Mongoose Schema");
+  }
+
+  if (!options.hasOwnProperty("keyBy") || !Array.isArray(options.keyBy)) {
+    throw new Error("options.keyBy must be set and be an Array");
+  }
+
+  if (!(typeof options == "object" && !Array.isArray(options))) {
+    throw new Error("options must be an object");
+  }
+
   if (
-    !options.hasOwnProperty("uniqueKeys") ||
-    !Array.isArray(options.uniqueKeys)
-  )
-    throw new Error("options.uniqueKeys must be set and be an Array");
+    options.calculations &&
+    !(
+      typeof options.calculations == "object" &&
+      !Array.isArray(options.calculations)
+    )
+  ) {
+    throw new Error("options.calculations must be an object");
+  }
+
+  if (
+    options.unique &&
+    !(typeof options.unique == "object" && !Array.isArray(options.unique))
+  ) {
+    throw new Error("options.calculations must be an object");
+  }
 
   options = Object.assign(
     {
       interval: "day",
       modelName: "MTSSchema",
       tsArraySize: 500,
-      calculations: {
-        "pos.zoom": "zoom",
-        "pos.x": "x"
-      }
+      calculations: {},
+      uniques: {}
     },
     options,
     {
@@ -72,13 +93,19 @@ a.prototype.statsPlugin = function statsPlugin() {
     })
     .reduce((a, b) => Object.assign(a, b), {});
 
-  var calcs = {};
+  var calcs = {},
+    uniques = {};
 
   for (var i in self.calculations) {
     calcs[self.calculations[i]] = [Number];
   }
 
-  // console.log(calcs);
+  for (var i in self.unique) {
+    uniques[self.unique[i] + ".count"] = { type: Number, default: 0 };
+    uniques[self.unique[i] + ".arr"] = [String];
+  }
+
+  // console.log(uniques);
 
   self.schema.add({
     mts__stats: {
@@ -110,6 +137,7 @@ a.prototype.statsPlugin = function statsPlugin() {
     },
 
     mts__calculations: calcs,
+    mts__uniques: uniques,
     createdAt: Date,
     updatedAt: Date
   });
@@ -151,7 +179,7 @@ a.prototype.save = function saveStat(doc) {
   return new Promise(async (resolve, reject) => {
     var status = null,
       now = new Date(),
-      query = Object.assign(pick(doc, self.uniqueKeys), {
+      query = Object.assign(pick(doc, self.keyBy), {
         "mts__interval.duration": self.interval,
         "mts__interval.start": { $lt: now },
         "mts__interval.end": { $gt: now }
@@ -176,29 +204,44 @@ a.prototype.save = function saveStat(doc) {
       setData.updatedAt = new Date();
 
       var calcs = {},
-        dotDoc = dotify(doc)
+        uniques = {
+          arr: {},
+          count: {}
+        },
+        dotDoc = dotify(doc);
       // console.log(dotDoc);
 
-      for(var i in self.calculations){
-        calcs[`${self.calculations[i]}`] = ((found["mts__calculations"]||{})[self.calculations[i]] || []).concat([dotDoc[i]]);
+      for (var i in self.calculations) {
+        calcs[`mts__calculations.${self.calculations[i]}`] = dotDoc[i];
+      }
+      for (var i in self.unique) {
+        uniques.arr[`mts__uniques.${self.unique[i]}.arr`] = String(dotDoc[i]);
+        uniques.count[`mts__uniques.${self.unique[i]}.count`] = 1;
       }
 
-      // console.log(calcs);
+      var updateObj = {
+        $set: setData,
+        $inc: Object.assign(
+          {
+            "mts__stats.count": 1
+          },
+          uniques.count
+        )
+        // $push : Object.assign(calcs),
+        // $addToSet: Object.assign( uniques.arr)
+      };
 
-      setData["mts__calculations"] = calcs;
+      if (Object.keys(calcs).length > 0) {
+        updateObj["$push"] = Object.assign(calcs);
+      }
+      if (Object.keys(uniques.arr).length > 0) {
+        updateObj["$addToSet"] = Object.assign(uniques.arr);
+      }
 
-      // console.log(self.calculations, dotDoc);
-      // console.log(setData);
+      // console.log(updateObj)
 
       try {
-        status = await q
-          .update({
-            $set: setData,
-            $inc: {
-              "mts__stats.count": 1
-            }
-          })
-          .exec();
+        status = await q.update(updateObj).exec();
       } catch (error) {
         return reject(error);
       }
@@ -228,15 +271,15 @@ a.prototype.save = function saveStat(doc) {
   });
 };
 
-a.prototype.expore = function(start, end, uniqueKeys) {
+a.prototype.expore = function(start, end, keyBy) {
   let self = this;
   return new Promise(async (resolve, reject) => {
     if (!start instanceof Date) throw new Error("'start' must be a Date");
     if (!end instanceof Date) throw new Error("'end' must be a Date");
-    if (uniqueKeys && !Array.isArray(uniqueKeys))
-      throw new Error("'uniqueKeys' must be an array");
+    if (keyBy && !Array.isArray(keyBy))
+      throw new Error("'keyBy' must be an array");
 
-    var query = Object.assign(uniqueKeys || {}, {
+    var query = Object.assign(keyBy || {}, {
       "mts__interval.duration": self.interval,
       "mts__interval.start": { $gte: start },
       "mts__interval.end": { $lte: end }
@@ -256,12 +299,10 @@ a.prototype.expore = function(start, end, uniqueKeys) {
       })
       .reduce((a, b) => Object.assign(a, b), {});
 
-    var unwinds = [],
-      calcs = {};
+    var calcs = {},
+      uniques = {};
 
     if (self.calculations) {
-      var calcs = {};
-
       for (var i in self.calculations) {
         calcs[`calculations/${self.calculations[i]}`] = {
           $push: `$mts__calculations.${self.calculations[i]}`
@@ -269,13 +310,27 @@ a.prototype.expore = function(start, end, uniqueKeys) {
       }
     }
 
-    // console.log(unwinds);
+    if (self.unique) {
+      for (var i in self.unique) {
+        uniques[`uniques/${self.unique[i]}/arr`] = {
+          $push: `$mts__uniques.${self.unique[i]}.arr`
+        };
+        uniques[`uniques/${self.unique[i]}/count`] = {
+          $push: `$mts__uniques.${self.unique[i]}.count`
+        };
+      }
+    }
+
     // console.log(calcs);
+    // console.log(unwinds);
+    // console.log()
 
     var aggs = await self.model
       .aggregate()
+      .allowDiskUse(true)
       .match(query)
       .sort("mts__interval.t")
+      // .unwind(...unwinds)
       .group(
         Object.assign(
           {
@@ -291,17 +346,17 @@ a.prototype.expore = function(start, end, uniqueKeys) {
             end: { $max: "$mts__interval.end" }
           },
           avgs,
-          calcs
+          calcs,
+          uniques
         )
       )
       .project("-_id")
+
       .exec()
       .catch(console.error);
 
     // console.log(JSON.stringify(aggs,0,4));
     // console.log(aggs);
-
-    // return
 
     if (!aggs || aggs.length === 0) {
       return resolve(null);
@@ -309,10 +364,11 @@ a.prototype.expore = function(start, end, uniqueKeys) {
 
     var stats = {
       overview: {
-        count: 0,
+        doc_count: 0,
         avg: {}
       },
-      calculations : {},
+      calculations: {},
+      uniques: {},
       timeSeries: aggs[0].timeSeries.filter(a => Object.keys(a).length == 2),
       meta: {
         start: aggs[0].start,
@@ -323,16 +379,16 @@ a.prototype.expore = function(start, end, uniqueKeys) {
     stats.meta.duration = {
       ms: moment(stats.meta.end).diff(moment(stats.meta.start))
     };
-    stats.meta.duration.formated = ms(stats.meta.duration.ms, { long: true });
+    stats.meta.duration.formatted = ms(stats.meta.duration.ms, { long: true });
 
     granulars.forEach(g => {
       stats.overview.avg[g] = {
-        val: Number(aggs[0][`avg/${g}`].toFixed(3)),
+        val: Number(aggs[0][`avg/${g}`] || 0).toFixed(3),
         hasForecast: aggs[0][`forecast/${g}`].indexOf(true) > -1
       };
     });
 
-    stats.overview.count = stats.timeSeries.length;
+    stats.overview.doc_count = stats.timeSeries.length;
 
     // stats.calculations = {};
 
@@ -343,22 +399,37 @@ a.prototype.expore = function(start, end, uniqueKeys) {
           []
         )
       );
-
-      // self.calculations
-      //   .map(o => {
-      //     return {
-      //       [`${o.as}`]: ss( aggs[0][`calculations/${o.as}`].reduce(
-      //         (a, b) => a.concat(b),
-      //         []
-      //       ) )
-      //     };
-      //   })
-      //   .reduce((a, b) => Object.assign(a, b), {})
     }
+
+    for (var i in self.unique) {
+      var uniqueVals = aggs[0][`uniques/${self.unique[i]}/arr`].reduce(
+          (a, b) => a.concat(b),
+          []
+        ).filter(onlyUnique).length,
+        count = aggs[0][`uniques/${self.unique[i]}/count`].reduce(
+          (a, b) => a + b,
+          0
+        );
+
+      stats.uniques[self.unique[i]] = {
+        unique: uniqueVals,
+        duplicated : count - uniqueVals,
+        total : count
+      };
+
+      // stats.uniques[self.unique[i]].duplicated =
+        // count - stats.uniques[self.unique[i]].unique;
+    }
+
+    // console.log(stats)
 
     resolve(stats);
   });
 };
+
+function onlyUnique(value, index, self) {
+  return self.indexOf(value) === index;
+}
 
 function pick(obj, arr) {
   return arr

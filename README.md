@@ -22,13 +22,17 @@ const mongoose = require("mongoose"),
 
 //First Create your Schema
 var hitsSchema = new mongoose.Schema({
-  //these keys are used as uniqueKeys. Advisable that you add them to your indexes
+  //these keys are used as keyBy. Advisable that you add them to your indexes
   "userId": String,
   "event": String,
 
   "pos": {
     "zoom": Number,
     "x": Number
+  },
+
+ "user" :{
+    "session_id" : String
   },
 
   //These two keys will be automatically added and populated
@@ -54,12 +58,18 @@ var options = {
     //what granularity do we want for our timeseries data?
     interval: "minute",
     //what are the unique keys to identify different documents
-    uniqueKeys: ["userId", "event"],
+    keyBy: ["userId", "event"],
     //numeric keys on witch to run summary statistics
     calculations: {
       "pos.zoom": "zoom",
       "pos.x": "x"
+    },
+
+    "unique" : {
+      'user.session_id' : 'sess_id'
     }
+    
+
   };
 
 //Initialize MTS. 
@@ -84,6 +94,9 @@ var doc = {
     pos: {
         zoom: Math.random() * 25,
         x: Math.random() * 80
+    },
+    user :{
+      session_id : _.random(0, 3434)
     }
 };
 
@@ -98,7 +111,7 @@ mts.save(doc)
 
 **Note:**
 - Instead of creating a new document for every *save* operation, MTS works by updating statistics to the same document till the stipulated *interval* has expired. For example, if ```interval='minute'```, a new document will be created every minute. This approach is well explained [HERE](https://blog.serverdensity.com/mongodb-schema-design-pitfalls).
-- ```userId``` and ```event``` were declared as *uniqueKeys*. As such, changing any of these values causes a new document to be created whether or not the *interval* stipulated has expired.
+- ```userId``` and ```event``` were declared as *keyBy*. As such, changing any of these values causes a new document to be created whether or not the *interval* stipulated has expired.
 
 ## Explore Your Stats
 Having saved your documents, it is now time to explore your data!
@@ -108,9 +121,9 @@ Having saved your documents, it is now time to explore your data!
 //Let us explore clicks by user:u-ed-20334 for the last 60 minutes 
 var start = moment() .subtract(60, "minutes").toDate(),
   end = moment().toDate(),
-  uniqueKeys = { userId: "u-ed-20334", event: "click" };
+  keyBy = { userId: "u-ed-20334", event: "click" };
 
-mts.expore(start, end, uniqueKeys)
+mts.expore(start, end, keyBy)
   .then(data => {
     console.log(data);
   })
@@ -123,7 +136,7 @@ This will output the following:
 ```json
 {                
     "overview": {     
-        "count": 46,   
+        "doc_count": 46,   
         "avg": {        
             "second": {         
                 "val": 3.067,        
@@ -156,7 +169,10 @@ This will output the following:
             "q3": 41.49306908847892,
             "max": 67.45257542537209
         }
-    },          
+    },  
+    "uniques": { 
+        "sess_id": { "unique": 313, "duplicated": 20, "total": 333 } 
+    },       
     "timeSeries": [ 
         {             
             "t": "09/11/2018 20:28",   
@@ -205,21 +221,23 @@ Initializes an MTS instance.
 - **schema: (required)** your mongoose schema.
 - **schemaName: (optional but recommended)** what name did you give your schema on mongoose. If no name is given, or the name does not represent an initialized mode, then one will be created and named **"MTSSchema"**
 - **interval: (optional, default="day")** How granular do you want your time series data to be? Possible values include ***"second", "minute", "hour", "day", "week", "month"*** and ***"year"***
-- **uniqueKeys: (optional but recommended)** An array of keys within your schema should be used to determine if a new document should be created. For example, if your intend to track data based on a user, then include user-id as a unique key. Because these keys are used a lot by MTS, it is recommended that you index each of them.
+- **keyBy: (optional but recommended)** An array of keys within your schema should be used to determine if a new document should be created. For example, if your intend to track data based on a user, then include user-id as a unique key. Because these keys are used a lot by MTS, it is recommended that you index each of them.
 - **calculations: (optional)** an object containing keys on which summary statistics are calculated. while entering the calculations object, ensure that the *field name* is entered as the key with its *value* being the document path in final analytics result. For example, the example above returns analytics for **pos.zoom** as **calculations.zoom**. If the calculations object was ```{"data.nested.foo":"bar"}``` MTS will return ```{"calculations.bar" : {...summary stats}}``` from ```{data:{nested:{foo:23}}}```.
+
+- **uniques: (optional) an object of keys that you want to aggregate uniqueness on. This is important for tracking things like unique users where you pass the users session ID and exploring the data will give tell you how many session id's were unique and how many were not.
 
 - **tsArraySize: (optional, default=500)** determines the maximum number of time-stamps stored within each document for aggregation. Only the most recent time-stamps are retained to ensure that documents are not too big. If you should alter this value, understand that the time-stamps you have, the less accurate your data will be. Also a very high number will mean your documents could get too large and impact on aggregation and document saving drastically.
 
 ## Save ```.save(doc)```
-Saves your document. In actual sense, MTS either updates an existing document or creates a new one if **interval** has elapsed or **uniqueKeys** have changed.
+Saves your document. In actual sense, MTS either updates an existing document or creates a new one if **interval** has elapsed or **keyBy** have changed.
 
-## Explore ```explore(start, end, [uniqueKeys])```
+## Explore ```explore(start, end, [keyBy])```
 Resolves with aggregated time series data. 
 - **start** and **end** must be valid date values.
 
 
 # To Do
-- Better documentation (wiki)
+- Better documentation (this was very hurriedly put up)
 - Add more stats
 
 

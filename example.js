@@ -14,6 +14,10 @@ var sceneHitsSchema = new Schema({
     x: Number
   },
 
+  user :{
+    session_id : String
+  },
+
   //These two keys will be automatically added and populated
   createdAt: Date,
   updatedAt: Date
@@ -30,6 +34,9 @@ var options = {
     calculations: {
       "pos.zoom": "zoom",
       "pos.x": "x"
+    },
+    unique : {
+      'user.session_id' : 'sess_id'
     }
   },
   analytics = Analytics(mongoose, options);
@@ -42,6 +49,9 @@ var doc = {
   pos: {
     zoom: Math.random() * 25,
     x: Math.random() * 80
+  },
+  user:{
+    session_id : Math.random() * 8999
   }
 };
 
