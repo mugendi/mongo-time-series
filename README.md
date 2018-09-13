@@ -126,7 +126,7 @@ var start = moment() .subtract(60, "minutes").toDate(),
   end = moment().toDate(),
   keyBy = { userId: "u-ed-20334", event: "click" };
 
-mts.expore(start, end, keyBy)
+mts.explore(start, end, keyBy)
   .then(data => {
     console.log(data);
   })

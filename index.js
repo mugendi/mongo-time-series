@@ -271,7 +271,7 @@ a.prototype.save = function saveStat(doc) {
   });
 };
 
-a.prototype.expore = function(start, end, keyBy) {
+a.prototype.explore = function(start, end, keyBy) {
   let self = this;
   return new Promise(async (resolve, reject) => {
     if (!start instanceof Date) throw new Error("'start' must be a Date");
