@@ -1,3 +1,6 @@
+# Warning
+*This is experimental technology. Proceed with caution!*
+
 # What?
 Mongo-Time-Series (MTS) is rich Mongo DB time series and analytics module built for [Mongoose](https://mongoosejs.com).
 
