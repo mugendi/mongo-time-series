@@ -124,9 +124,9 @@ Having saved your documents, it is now time to explore your data!
 //Let us explore clicks by user:u-ed-20334 for the last 60 minutes 
 var start = moment() .subtract(60, "minutes").toDate(),
   end = moment().toDate(),
-  keyBy = { userId: "u-ed-20334", event: "click" };
+  queryObject = { userId: "u-ed-20334", event: "click" };
 
-mts.explore(start, end, keyBy)
+mts.explore(start, end, queryObject)
   .then(data => {
     console.log(data);
   })
@@ -234,7 +234,7 @@ Initializes an MTS instance.
 ## Save ```.save(doc)```
 Saves your document. In actual sense, MTS either updates an existing document or creates a new one if **interval** has elapsed or **keyBy** have changed.
 
-## Explore ```explore(start, end, [keyBy])```
+## Explore ```explore(start, end, [queryObject])```
 Resolves with aggregated time series data. 
 - **start** and **end** must be valid date values.
 

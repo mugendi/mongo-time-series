@@ -276,8 +276,9 @@ a.prototype.explore = function(start, end, keyBy) {
   return new Promise(async (resolve, reject) => {
     if (!start instanceof Date) throw new Error("'start' must be a Date");
     if (!end instanceof Date) throw new Error("'end' must be a Date");
-    if (keyBy && !Array.isArray(keyBy))
-      throw new Error("'keyBy' must be an array");
+    
+    if (!typeof keyBy == 'object' ||  Array.isArray(keyBy))
+      throw new Error("'keyBy' must be an object");
 
     var query = Object.assign(keyBy || {}, {
       "mts__interval.duration": self.interval,
