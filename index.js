@@ -351,8 +351,6 @@ a.prototype.explore = function(start, end, keyBy) {
           uniques
         )
       )
-      .project("-_id")
-
       .exec()
       .catch(console.error);
 
@@ -389,7 +387,7 @@ a.prototype.explore = function(start, end, keyBy) {
       };
     });
 
-    stats.overview.doc_count = stats.timeSeries.length;
+    stats.overview.doc_count = stats.timeSeries && stats.timeSeries.length ? stats.timeSeries.length : 0;
 
     // stats.calculations = {};
 
