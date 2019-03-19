@@ -1,6 +1,6 @@
 {
   "name": "mongo-time-series",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Mongo DB time series and analytics module for Mongoose",
   "main": "index.js",
   "scripts": {
