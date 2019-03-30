@@ -241,7 +241,7 @@ a.prototype.save = function saveStat(doc) {
       // console.log(updateObj)
 
       try {
-        status = await q.update(updateObj).exec();
+        status = await q.updateOne(updateObj).exec();
       } catch (error) {
         return reject(error);
       }
